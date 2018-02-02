@@ -75,6 +75,7 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
   def toBoolean(v: Expr): Boolean = {
     require(isValue(v))
     (v: @unchecked) match {
+      case Undefined => false
       case B(b) => b
       case N(0) => false
       case N(_) => true
@@ -107,14 +108,49 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
         val envp = extend(env, x, e1p);
         eval(envp, e2)
       }
-      case Binary(And, e1, e2 )=> ???
-      case Binary(Or, e1, e2) => eval(N(toNumber(eval(B(toBoolean(e1)||toBoolean(e2))))))
+      case Binary(And, e1, e2 )=> {
+        val v1 = eval(env, e1)
+        if (toBoolean(v1) == true) return eval(env, e2) else eval(env, e1)
+      }
+      case Binary(Or, e1, e2) => {
+        val v1 = eval(e1)
+        if (toBoolean(v1) == true) return e1 else eval(e2)
+      }
+
       case Binary(Eq, e1, e2) => eval(B(toNumber(eval(e1)) == toNumber(eval(e2))))
-      case Binary(Plus, e1, e2) => eval(N(toNumber(eval(e1))+toNumber(eval(e2))))
+
+
+      case Binary(Plus, e1, e2) => ???
+
+      case Binary(Ge, e1, e2) => eval(B(toNumber(eval(e1)) >= toNumber(eval(e2))))
+
+      case Binary(Gt, e1, e2) => eval(B(toNumber(eval(e1)) > toNumber(eval(e2))))
+
+      case Binary(Le, e1, e2) => eval(B(toNumber(eval(e1)) <= toNumber(eval(e2))))
+
+
       case Binary(Minus, e1, e2) => eval(N(toNumber(eval(e1))-toNumber(eval(e2))))
+
       case Binary(Times, e1, e2) => eval(N(toNumber(eval(e1)) * toNumber(eval(e2))))
+
       case Binary(Div, e1, e2) => eval(N(toNumber(eval(e1)) / toNumber(eval(e2))))
+
       case Binary(Ne, e1, e2) => eval(B(toNumber(eval(e1)) != toNumber(eval(e2))))
+
+      case Binary(Lt, e1, e2) => eval(B(toNumber(eval(e1)) < toNumber(eval(e2))))
+
+      case Unary(Neg, e1) => eval(N(-toNumber(eval(e1))))
+
+      case Unary(Not, e1) => eval(B(!toBoolean(eval(e1))))
+
+      case If(e1, e2, e3) => {
+        val b1 = eval(e1)
+        if(toBoolean(b1) == true) eval(e2) else eval(e3)
+      }
+
+      case Binary(Seq, e1, e2) => eval(e1);eval(e2)
+
+
       case Print(e1) => println(pretty(eval(env, e1))); Undefined
 
       case _ => ???
