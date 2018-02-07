@@ -4,14 +4,14 @@ import jsy.lab2.Lab2Like
 
 object Lab2 extends jsy.util.JsyApplication with Lab2Like {
   import jsy.lab2.Parser
-  import jsy.lab2.ast._
+	import jsy.lab2.ast._
 
   /*
    * CSCI 3155: Lab 2
    * Jason Lubrano
    * 
    * Partner: Lucas Sward
-   * Collaborators: <Any Collaborators>
+   * Collaborators: Abiel Fattore
    */
 
   /*
@@ -70,7 +70,7 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
         case "undefined" => Double.NaN
         case "Undefined" => Double.NaN
         case "" => Double.NaN
-        case s => try s.toDouble catch {case _ : Throwable => Double.NaN}
+        case str => try str.toDouble catch {case e : java.lang.NumberFormatException => Double.NaN}
       }
       // undefined
       case undefined => Double.NaN
@@ -103,55 +103,88 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
       case Undefined => "undefined"
       case N(n) => n.toString
       case B(b) => b.toString
-      //case _ => Throw new UnsupportedOperationException
+    	//case _ => Throw new UnsupportedOperationException
     }
   }
 
   def eval(env: Env, e: Expr): Expr = {
+    
     e match {
       /* Base Cases */
-      case Var(x) => lookup(env, x)
+      case Var(x) => try {
+      	lookup(env, x)
+      } catch {
+      	case e: java.util.NoSuchElementException => {
+      		val variable = x
+      		eval(env, Print(S("ReferenceError: $variable not defined")))
+      	}
+      }
+      
       case N(_)|B(_)|S(_)|Undefined => e
+      
       /* Inductive Cases */
       case ConstDecl(x, e1, e2) => {
         val e1_new = eval(env, e1) //find e1 with the same environment
         val env_new = extend(env, x, e1_new) //update the environmnt with x = 5 constantly
         eval(env_new, e2) // evaluate the next expression with the updated environment
       }
+      
       /* UOPS */
       case Unary(uop, e1) => uop match {
         case Neg => eval(N(-toNumber(eval(e1))))
         case Not => eval(B(!toBoolean(eval(e1))))
       }
-
+      /* BOPS */
       case Binary(bop, e1, e2) => bop match {
-        case Plus => eval(N(toNumber(eval(e1)) + toNumber(eval(e2))))
-        case Minus => eval(N(toNumber(eval(e1)) - toNumber(eval(e2))))
-        case Times => eval(N(toNumber(eval(e1)) * toNumber(eval(e2))))
-        case Div => if(toNumber(eval(e2)) == 0) throw new UnsupportedOperationException else eval(N(toNumber(eval(e1)) / toNumber(e2)))
+        case Plus => (eval(env, e1), eval(env, e2)) match {
+        	case (S(str), e2) => S(str + toStr(e2))
+        	case (e1, S(str)) => S(toStr(e2) + str)
+        	case (e1, e2) => N(toNumber(eval(e1)) + toNumber(eval(e2)))
+        }
+        case Minus => (eval(env, e1), eval(env, e2)) match {
+        	case (e1, e2) => N(toNumber(eval(e1)) - toNumber(eval(e2)))
+        }
+        case Times => (eval(env, e1), eval(env, e2)) match {
+        	case (e1, e2) => N(toNumber(e1) * toNumber(e2))
+        }
+        case Div => (eval(env, e1), eval(env, e2)) match {
+        	case (e1, e2) => N(toNumber(e1) / toNumber(e2))
+        }
         /* === type checking */
         case Eq => {
-          val exp1 = N(toNumber(eval(e1)))
-          val exp2 = N(toNumber(eval(e2)))
+          val exp1 = eval(env, e1)
+          val exp2 = eval(env, e2)
           if(exp1 == exp2) B(true) else B(false)
         }
         case Ne => {
-          val exp1 = N(toNumber(eval(e1)))
-          val exp2 = N(toNumber(eval(e2)))
+          val exp1 = eval(env, e1)
+          val exp2 = eval(env, e2)
           if(exp1 == exp2) B(false) else B(true)
         }
         /* comps */
-        case Lt => eval(B(toNumber(eval(e1)) < toNumber(eval(e2))))
-        case Le => eval(B(toNumber(eval(e1)) <= toNumber(eval(e2))))
-        case Ge => eval(B(toNumber(eval(e1)) > toNumber(eval(e2))))
-        case And => eval(B(toBoolean(eval(e1)) && toBoolean(eval(e2))))
-        case Or => eval(B(toBoolean(eval(e1)) || toBoolean(eval(e2))))
-        case Seq => ???
+        case Lt => eval(env, B(toNumber(eval(env, e1)) < toNumber(eval(env, e2))))
+        case Le => eval(env, B(toNumber(eval(env, e1)) <= toNumber(eval(env, e2))))
+        case Ge => eval(env, B(toNumber(eval(env, e1)) >= toNumber(eval(env, e2))))
+        case Gt => eval(env, B(toNumber(eval(env, e1)) > toNumber(eval(env, e2))))
+        case And => {
+        	val v1 = eval(env, e1)
+        	val v2 = eval(env, e2)
+        	if (toBoolean(v1) == true) return v2 else v1
+        }
+        case Or => {
+					val v1 = eval(env, e1)
+					if (toBoolean(v1) == true) return e1 else eval(env, e2)
+				} 
+        case Seq => eval(env, e1);eval(env, e2)
       }
+   		case If(e1, e2, e3) => {
+        val bool1 = eval(env, e1)
+        if(toBoolean(bool1) == true) eval(env, e2) else eval(env, e3)
+			}
 
-      case Print(e1) => println(pretty(eval(env, e1))); Undefined
+    	case Print(e1) => println(pretty(eval(env, e1))); Undefined
 
-      case _ => ???
+    	case _ => throw new UnsupportedOperationException
     }
   }
 
