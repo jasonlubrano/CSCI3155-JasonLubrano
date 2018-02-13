@@ -4,12 +4,12 @@ import jsy.lab2.Lab2Like
 
 object Lab2 extends jsy.util.JsyApplication with Lab2Like {
   import jsy.lab2.Parser
-	import jsy.lab2.ast._
+  import jsy.lab2.ast._
 
   /*
    * CSCI 3155: Lab 2
    * Jason Lubrano
-   * 
+   *
    * Partner: Lucas Sward
    * Collaborators: Abiel Fattore
    */
@@ -17,16 +17,16 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
   /*
    * Fill in the appropriate portions above by replacing things delimited
    * by '<'... '>'.
-   * 
+   *
    * Replace the '???' expression with  your code in each function.
-   * 
+   *
    * Do not make other modifications to this template, such as
    * - adding "extends App" or "extends Application" to your Lab object,
    * - adding a "main" method, and
    * - leaving any failing asserts.
-   * 
+   *
    * Your lab will not be graded if it does not compile.
-   * 
+   *
    * This template compiles without error. Before you submit comment out any
    * code that does not compile or causes a failing assert. Simply put in a
    * '???' as needed to get something  that compiles without error. The '???'
@@ -36,7 +36,7 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
 
   /* We represent a variable environment as a map from a string of the
    * variable name to the value to which it is bound.
-   * 
+   *
    * You may use the following provided helper functions to manipulate
    * environments, which are just thin wrappers around the Map type
    * in the Scala standard library.  You can use the Scala standard
@@ -68,12 +68,12 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
       // string
       case S(s) => s match {
         case "undefined" => Double.NaN
-        case "Undefined" => Double.NaN
-        case "" => Double.NaN
+        //case "Undefined" => Double.NaN
+        case "" => 0
         case str => try str.toDouble catch {case e : java.lang.NumberFormatException => Double.NaN}
       }
       // undefined
-      case undefined => Double.NaN
+      case Undefined => Double.NaN
       // if not those types
       case _ => throw new UnsupportedOperationException
     }
@@ -86,12 +86,13 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
       case B(b) => b
       // Number
       case N(0) => false
+      case N(n) => if(n.isNaN) false else true
       case N(_) => true
       // String
       case S("") => false
       case S(_) => true
       // Undefined
-      case undefined => false
+      case Undefined => false
       case _ => throw new UnsupportedOperationException
     }
   }
@@ -101,54 +102,56 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
     (v: @unchecked) match {
       case S(s) => s
       case Undefined => "undefined"
-      case N(n) => n.toString
-      case B(b) => b.toString
-    	//case _ => Throw new UnsupportedOperationException
+      case N(n) => if(n.isWhole()) n.toInt.toString else n.toString
+      case B(b) => if(b) "true" else "false"
+      case _ => throw new UnsupportedOperationException
     }
   }
 
   def eval(env: Env, e: Expr): Expr = {
-    
+
     e match {
       /* Base Cases */
       case Var(x) => try {
-      	lookup(env, x)
+        lookup(env, x)
       } catch {
-      	case e: java.util.NoSuchElementException => {
-      		val variable = x
-      		eval(env, Print(S("ReferenceError: $variable not defined")))
-      	}
+        case e: java.util.NoSuchElementException => {
+          val variable = x
+          eval(env, Print(S("ReferenceError: $variable not defined")))
+        }
       }
-      
+
       case N(_)|B(_)|S(_)|Undefined => e
-      
+
       /* Inductive Cases */
       case ConstDecl(x, e1, e2) => {
         val e1_new = eval(env, e1) //find e1 with the same environment
         val env_new = extend(env, x, e1_new) //update the environmnt with x = 5 constantly
         eval(env_new, e2) // evaluate the next expression with the updated environment
       }
-      
+
       /* UOPS */
       case Unary(uop, e1) => uop match {
-        case Neg => eval(N(-toNumber(eval(e1))))
-        case Not => eval(B(!toBoolean(eval(e1))))
+        case Neg => eval(env, N(-toNumber(eval(env, e1))))
+        case Not => eval(env, B(!toBoolean(eval(env, e1))))
       }
       /* BOPS */
       case Binary(bop, e1, e2) => bop match {
         case Plus => (eval(env, e1), eval(env, e2)) match {
-        	case (S(str), e2) => S(str + toStr(e2))
-        	case (e1, S(str)) => S(toStr(e2) + str)
-        	case (e1, e2) => N(toNumber(eval(e1)) + toNumber(eval(e2)))
+          case (S(str), e2) => S(str + toStr(eval(env, e2)))
+          case (e1, S(str)) => S(toStr(eval(env, e2)) + str)
+          case (e1, e2) => N(toNumber(eval(env, e1)) + toNumber(eval(env, e2)))
+          case (e1, Undefined) => N(Double.NaN)
+          case (Undefined, e2) => N(Double.NaN)
         }
         case Minus => (eval(env, e1), eval(env, e2)) match {
-        	case (e1, e2) => N(toNumber(eval(e1)) - toNumber(eval(e2)))
+          case (e1, e2) => N(toNumber(eval(env, e1)) - toNumber(eval(env, e2)))
         }
         case Times => (eval(env, e1), eval(env, e2)) match {
-        	case (e1, e2) => N(toNumber(e1) * toNumber(e2))
+          case (e1, e2) => N(toNumber(e1) * toNumber(e2))
         }
         case Div => (eval(env, e1), eval(env, e2)) match {
-        	case (e1, e2) => N(toNumber(e1) / toNumber(e2))
+          case (e1, e2) => N(toNumber(e1) / toNumber(e2))
         }
         /* === type checking */
         case Eq => {
@@ -162,29 +165,68 @@ object Lab2 extends jsy.util.JsyApplication with Lab2Like {
           if(exp1 == exp2) B(false) else B(true)
         }
         /* comps */
-        case Lt => eval(env, B(toNumber(eval(env, e1)) < toNumber(eval(env, e2))))
-        case Le => eval(env, B(toNumber(eval(env, e1)) <= toNumber(eval(env, e2))))
-        case Ge => eval(env, B(toNumber(eval(env, e1)) >= toNumber(eval(env, e2))))
-        case Gt => eval(env, B(toNumber(eval(env, e1)) > toNumber(eval(env, e2))))
+        case Lt => (eval(env, e1), eval(env, e2)) match{
+          case(S(_), S(_)) => B(toStr(eval(env, e1)) < toStr(eval(env, e2)))
+          case(e1, Undefined) => B(false)
+          case(Undefined, e2) => B(false)
+          case(Undefined, Undefined) => B(false)
+          case(S(_), B(b2)) => B(toNumber(eval(env, e1)) < toNumber(B(b2)))
+          case(B(b1), S(_)) => B(toNumber(B(b1)) < toNumber(eval(env,e2)))
+          case(B(b1), B(b2)) => B(toNumber(B(b1)) < toNumber(B(b2)))
+          case(e1, e2) => B(toNumber(eval(env, e1)) < toNumber(eval(env, e2)))
+        }
+        case Le => (eval(env, e1), eval(env, e2)) match{
+          case(S(_), S(_)) => B(toStr(eval(env, e1)) <= toStr(eval(env, e2)))
+          case(e1, Undefined) => B(false)
+          case(Undefined, e2) => B(false)
+          case(Undefined, Undefined) => B(false)
+          case(S(_), B(b2)) => B(toNumber(eval(env, e1)) <= toNumber(B(b2)))
+          case(B(b1), S(_)) => B(toNumber(B(b1)) <= toNumber(eval(env,e2)))
+          case(B(b1), B(b2)) => B(toNumber(B(b1)) <= toNumber(B(b2)))
+          case(e1, e2) => B(toNumber(eval(env, e1)) <= toNumber(eval(env, e2)))
+        }
+        case Ge => (eval(env, e1), eval(env, e2)) match{
+          case(S(_), S(_)) => B(toStr(eval(env, e1)) >= toStr(eval(env, e2)))
+          case(e1, Undefined) => B(false)
+          case(Undefined, e2) => B(false)
+          case(Undefined, Undefined) => B(false)
+          case(S(_), B(b2)) => B(toNumber(eval(env, e1)) >= toNumber(B(b2)))
+          case(B(b1), S(_)) => B(toNumber(B(b1)) >= toNumber(eval(env,e2)))
+          case(B(b1), B(b2)) => B(toNumber(B(b1)) >= toNumber(B(b2)))
+          case(e1, e2) => B(toNumber(eval(env, e1)) >= toNumber(eval(env, e2)))
+        }
+        case Gt => (eval(env, e1), eval(env, e2)) match{
+          case(S(_), S(_)) => B(toStr(eval(env, e1)) > toStr(eval(env, e2)))
+          case(e1, Undefined) => B(false)
+          case(Undefined, e2) => B(false)
+          case(Undefined, Undefined) => B(false)
+          case(S(_), B(b2)) => B(toNumber(eval(env, e1)) > toNumber(B(b2)))
+          case(B(b1), S(_)) => B(toNumber(B(b1)) > toNumber(eval(env,e2)))
+          case(B(b1), B(b2)) => B(toNumber(B(b1)) > toNumber(B(b2)))
+          case(e1, e2) => B(toNumber(eval(env, e1)) > toNumber(eval(env, e2)))
+        }
         case And => {
-        	val v1 = eval(env, e1)
-        	val v2 = eval(env, e2)
-        	if (toBoolean(v1) == true) return v2 else v1
+          val v1 = eval(env, e1)
+          val v2 = eval(env, e2)
+          if (toBoolean(v1) == true) return v2 else v1
         }
         case Or => {
-					val v1 = eval(env, e1)
-					if (toBoolean(v1) == true) return e1 else eval(env, e2)
-				} 
+          val v1 = eval(env, e1)
+          val v2 = eval(env, e2)
+          if (toBoolean(v1) == true) return v1 else v2
+        }
         case Seq => eval(env, e1);eval(env, e2)
       }
-   		case If(e1, e2, e3) => {
+      case If(e1, e2, e3) => {
         val bool1 = eval(env, e1)
-        if(toBoolean(bool1) == true) eval(env, e2) else eval(env, e3)
-			}
+        val v2 = eval(env, e2)
+        val v3 = eval(env, e3)
+        if(toBoolean(bool1)) v2 else v3
+      }
 
-    	case Print(e1) => println(pretty(eval(env, e1))); Undefined
+      case Print(e1) => println(pretty(eval(env, e1))); Undefined
 
-    	case _ => throw new UnsupportedOperationException
+      case _ => throw new UnsupportedOperationException
     }
   }
 
