@@ -275,13 +275,77 @@ object Lab3 extends JsyApplication with Lab3Like {
   def step(e: Expr): Expr = {
     e match {
       /* Base Cases: Do Rules */
-      case Unary(Neg, e1) if isValue(e1) => N(-toNumber(e1))
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
       // ****** Your cases here
 
       /* Inductive Cases: Search Rules */
-      case Print(e1) => Print(step(e1))
-      // ****** Your cases here
+      /* UOPS */
+      case Unary(Neg, e1) => e1 match {
+        case N(n) => N(-n)
+        case _ => Unary(Neg, step(e1))
+      }
+      case Unary(Not, e1) => e1 match {
+        case B(n) => B(!n)
+        case _ => Unary(Not, step(e1))
+      }
+      /* BOPS */
+        /* Arithmatic */
+      case Binary(Plus, e1, e2) => if (isValue(e1) && isValue(e2)) (e1, e2) match {
+        case (S(_), _) => S(toStr(e1) + toStr(e2))
+        case (_, S(_)) => S(toStr(e1) + toStr(e2))
+        case (_, _) => N(toNumber(e1) + toNumber(e2))
+      } else if(!isValue(e1)) {
+        Binary(Plus, step(e1), e2)
+      } else {
+        Binary(Plus, e1, step(e2))
+      }
+
+      case Binary(Minus, e1, e2) => if (isValue(e1) && isValue(e2)) {
+        N(toNumber(e1) - toNumber(e2))
+      } else if (!isValue(e1)) {
+        Binary(Minus, step(e1), e2)
+      } else {
+        Binary(Minus, e1, step(e2))
+      }
+
+      case Binary(Times, e1, e2) => if (isValue(e1) && isValue(e2)) {
+        N(toNumber(e1) * toNumber(e2))
+      } else if (!isValue(e1)) {
+        Binary(Times, step(e1), e2)
+      } else {
+        Binary(Times, e1, step(e2))
+      }
+
+      case Binary(Div, e1, e2) => if (isValue(e1) && isValue(e2)) {
+        N(toNumber(e1) / toNumber(e2))
+      } else if (!isValue(e1)) {
+        Binary(Div, step(e1), e2)
+      } else {
+        Binary(Div, e1, step(e2))
+      }
+        /* conditionals */
+      case Binary(Eq, e1, e2) => ???
+      case Binary(Ne, e1, e2) => ???
+      case Binary(Lt, e1, e2) => ???
+      case Binary(Gt, e1, e2) => ???
+      case Binary(Le, e1, e2) => ???
+      case Binary(Ge, e1, e2) => ???
+        /* logic */
+      case Binary(And, e1, e2) => ???
+      case Binary(Or, e1, e2) => ???
+        /* seq */
+      case Binary(Seq, e1, e2) => ???
+        /* if */
+      case If(e1, e2, e3) => ???
+        /*const decl*/
+      case ConstDecl(x, e1, e2) => ???
+        /* call */
+      case Call(e1, e2) => ???
+      case Call(v1, v2) => ???
+      case Call(e1, v2) => ???
+      case Call(v1, e2) => ???
+      case Call(e1@Function(_,_,_), e2) => ???
+
 
       /* Cases that should never match. Your cases above should ensure this. */
       case Var(_) => throw new AssertionError("Gremlins: internal error, not closed expression.")
