@@ -205,14 +205,7 @@ object Lab3 extends JsyApplication with Lab3Like {
         val b1 = toBoolean(v1)
         if(b1 == true) eval(env,e2) else eval(env,e3)
       }
-      case Var(s) => try {
-        lookup(env,s)
-      } catch {
-        case e: java.util.NoSuchElementException => {
-          val variable = s
-          eval(env, Print(S("ReferenceError: $variable not defined")))
-        }
-      }
+      case Var(s) => lookup(env,s)
       case ConstDecl(s,e1,e2) => {
         val v1 = eval(env, e1)
         val newEnv = extend(env, s, v1)
@@ -249,6 +242,7 @@ object Lab3 extends JsyApplication with Lab3Like {
 
   /* Small-Step Interpreter with Static Scoping */
 
+  //work through and example with a ca
   def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
     def loop(e: Expr, n: Int): Expr = next(e,n) match {
       case Some(ep) => loop(ep,n+1)
@@ -262,28 +256,105 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       case N(_) | B(_) | Undefined | S(_) => e
       case Print(e1) => Print(substitute(e1, v, x))
-      case Unary(uop, e1) => ???
-      case Binary(bop, e1, e2) => ???
-      case If(e1, e2, e3) => ???
-      case Call(e1, e2) => ???
-      case Var(y) => ???
-      case Function(None, y, e1) => ???
-      case Function(Some(y1), y2, e1) => ???
-      case ConstDecl(y, e1, e2) => ???
+      case Unary(uop, e1) => Unary(uop, substitute(e1,v,x))
+      case Binary(bop, e1, e2) => Binary(bop, substitute(e1,v,x),substitute(e2,v,x))
+      case If(e1, e2, e3) => If(substitute(e1,v,x),substitute(e2,v,x),substitute(e3,v,x))
+      case Call(e1, e2) => Call(substitute(e1,v,x),substitute(e2,v,x))
+
+      case Var(y) => if(y==x) v else Var(y)
+
+      case Function(None, y, e1) => if(y==x) Function(None,y,e1) else Function(None,y,substitute(e1,v,x))
+      case Function(Some(y1), y2, e1) => {
+        if (y1 == x || y2 == x) Function(Some(y1), y2, e1)
+        else Function(Some(y1), y2, substitute(e1, v, x))
+      }
+      case ConstDecl(y, e1, e2) => {
+        if (y == x) ConstDecl(y, substitute(e1, v, x), e2)
+        else ConstDecl(y, substitute(e1, v, x), substitute(e2, v, x))
+      }
     }
   }
     
   def step(e: Expr): Expr = {
     e match {
-      /* Base Cases: Do Rules */
-      case Unary(Neg, e1) if isValue(e1) => N(-toNumber(e1))
+      //DoUnary
+      case Unary(Neg,v1) if isValue(v1) => N(-toNumber(v1))
+      case Unary(Not,v1) if isValue(v1) => B(!toBoolean(v1))
+      //short circuit stuff (DoAnd)
+      case Binary(And,v1,e2) if isValue(v1) => if(toBoolean(v1)) e2 else v1
+      case Binary(Or,v1,e2) if isValue(v1) => if(toBoolean(v1)) v1 else e2
+      case Binary(Seq,v1,e2) if isValue(v1) => e2
+
+      case Binary(bop,v1,v2) if isValue(v1) && isValue(v2) => bop match {
+        case Plus => (v1,v2) match {
+          case (S(str),_) => S(str + toStr(v2))
+          case (_,S(str)) => S(toStr(v1) + str)
+          case (N(n),N(m)) => N(n + m)
+        }
+        case Minus => N(toNumber(v1) - toNumber(v2))
+        case Times => N(toNumber(v1) * toNumber(v2))
+        case Div => N(toNumber(v1) / toNumber(v2))
+
+        case Eq => (v1,v2) match {
+          case (_,Function(_,_,_)) => throw new DynamicTypeError(e)
+          case (Function(_,_,_),_) => throw new DynamicTypeError(e)
+          case _ => B(v1 == v2)
+        }
+          //Equality
+        case Ne => (v1,v2) match {
+          case (_,Function(_,_,_)) => throw new DynamicTypeError(e)
+          case (Function(_,_,_),_) => throw new DynamicTypeError(e)
+          case _ => B(v1 == v2)
+        }
+        case Lt => (v1,v2) match {
+          case (_,_) => B(toNumber(v1) < toNumber(v2))
+          case (S(str1),S(str2)) => B(str1 < str2)
+        }
+          //DoInequality
+        case Le => (v1,v2) match {
+          case (_,_) => B(toNumber(v1) <= toNumber(v2))
+          case (S(str1),S(str2)) => B(str1 <= str2)
+        }
+        case Gt => (v1,v2) match {
+          case (_,_) => B(toNumber(v1) > toNumber(v2))
+          case (S(str1),S(str2)) => B(str1 > str2)
+        }
+        case Ge => (v1,v2) match {
+          case (_,_) => B(toNumber(v1) >= toNumber(v2))
+          case (S(str1),S(str2)) => B(str1 >= str2)
+        }
+      }
+      case If(v1,e2,e3) if isValue(v1)=> if(toBoolean(v1)) e2 else e3
+      case ConstDecl(s,v1,e2) if isValue(v1) => {
+        substitute(e2,v1,s)
+      }
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
-      
+
+      case Call(v1,v2) if isValue(v1) && isValue(v2) => v1 match {
+        case Function(None,p,body) => substitute(body,v2,p)
+        case Function(Some(x),p,body) => substitute(substitute(body,v1,x),v2,p)
+        case _ => throw new DynamicTypeError(e)
+      }
+
+
         // ****** Your cases here
       
       /* Inductive Cases: Search Rules */
+      case Unary(uop,e1) => Unary(uop, step(e1))
+
+      case Binary(bop,e1,e2) => (bop,e1,e2) match {
+        case (Plus | Minus | Times | Div | Gt | Lt | Ge | Le, _, _) if isValue(e1) => Binary(bop, e1, step(e2))
+        case (Eq | Ne, Function(_, _, _), _) if isValue(e1) => throw new DynamicTypeError(e)
+        case (Eq | Ne, _, _) if isValue(e1) => Binary(bop, e1, step(e2))
+        case _ => Binary(bop, step(e1), e2)
+      }
+
       case Print(e1) => Print(step(e1))
-      
+      case If(e1,e2,e3) => If(step(e1),e2,e3)
+      case ConstDecl(s,e1,e2) => ConstDecl(s,step(e1),e2)
+
+
+      case Call(e1,e2) => if(isValue(e1)) Call(e1,step(e2)) else Call(step(e1),e2)
         // ****** Your cases here
 
       /* Cases that should never match. Your cases above should ensure this. */
