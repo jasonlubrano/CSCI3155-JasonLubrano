@@ -57,7 +57,6 @@ object Lab3 extends JsyApplication with Lab3Like {
       case N(n) => if(n==0) false else true
       case S(s) => if(s=="") false else true
       case Undefined => false
-      case _ => throw new UnsupportedOperationException
     }
   }
 
@@ -71,7 +70,6 @@ object Lab3 extends JsyApplication with Lab3Like {
         // Here in toStr(Function(_, _, _)), we will deviate from Node.js that returns the concrete syntax
         // of the function (from the input program).
       case Function(_, _, _) => "function"
-      case _ => throw new UnsupportedOperationException // delete this line when done
     }
   }
 
@@ -121,20 +119,10 @@ object Lab3 extends JsyApplication with Lab3Like {
           case (v1, v2) => N(toNumber(v1) / toNumber(v2))
         }
         case And => {
-          val v1 = eval(env,e1)
-          val v2 = eval(env,e2)
-
-          val b1 = toBoolean(v1)
-
-          if(b1 == true) v2 else v1
+          if(toBoolean(eval(env,e1))) eval(env,e2) else B(false)
         }
         case Or => {
-          val v1 = eval(env,e1)
-          val v2 = eval(env,e2)
-
-          val b2 = toBoolean(v2)
-
-          if(b2 == true) v2 else v1
+          if(toBoolean(eval(env,e1))) B(true) else eval(env,e2)
         }
         case Eq => {
           val v1 = eval(env, e1)
@@ -232,10 +220,10 @@ object Lab3 extends JsyApplication with Lab3Like {
           val newEnv = extend(env,x,v1)
           val newEnv1 = extend(newEnv,p,v2)
           eval(newEnv1, body)
-
         }
+        case _ => throw new DynamicTypeError(e)
       }
-      case _ => throw new UnsupportedOperationException
+      case _ => Undefined
     }
   }
     
@@ -289,8 +277,9 @@ object Lab3 extends JsyApplication with Lab3Like {
         case Plus => (v1,v2) match {
           case (S(str),_) => S(str + toStr(v2))
           case (_,S(str)) => S(toStr(v1) + str)
-          case (N(n),N(m)) => N(n + m)
+          case _ => N(toNumber(v1) + toNumber(v2))
         }
+
         case Minus => N(toNumber(v1) - toNumber(v2))
         case Times => N(toNumber(v1) * toNumber(v2))
         case Div => N(toNumber(v1) / toNumber(v2))
