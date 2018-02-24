@@ -8,9 +8,9 @@ object Lab3 extends JsyApplication with Lab3Like {
   
   /*
    * CSCI 3155: Lab 3 
-   * Abiel Fattore
+   * Jason Lubrano
    * 
-   * Partner: Jason Lubrano
+   * Partner: Abiel Fattore
    * Collaborators: <Any Collaborators>
    */
 
