@@ -1,0 +1,29 @@
+/* jason lubrano and abiel fattore's impossible jsy tests */
+const x = 5
+const y = function(yvar) { return yvar + x }
+const z = function(zvar) { return function(avar) { return (avar + zvar) } }
+const impostest = function(var1) { return function(var2) { return ((var2 * y(var1)) - z(var2)(var1)) } }
+
+jsy.print(x) /* should print 5 */
+jsy.print(yvar(4)) /* should print 9 */
+jsy.print(z(5)(10)) /* should print 15 */
+jsy.print(impostest(4)(14)) /* Should print..
+
+/*
+steps
+
+(var2 * y(var1)) - z(var2)(var1)
+(14 * (yvar + x)) - z(var2)(var1)
+(14 * (var1 + x)) - z(var2)(var1)
+(14 * (4 + x)) - z(var2)(var1)
+(14 * (4 + 5)) - z(var2)(var1)
+(14 * (9)) - z(var2)(var1)
+(126) - z(var2)(var1)
+(126) - z(14)(var1)
+(126) - z(14)(4)
+(126) - (avar + zvar)
+(126) - (14 + zvar)
+(126) - (14 + 4)
+(126) - (18)
+108
+*/
