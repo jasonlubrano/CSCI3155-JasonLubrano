@@ -39,7 +39,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   
   def compressRec[A](l: List[A]): List[A] = l match {
     case Nil | _ :: Nil => return l
-    case h1 :: (t1 @ (h2 :: _)) => if (h1 == h2) compressRec(t1) else h2::compressRec(t1)
+    case h1 :: (t1 @ (h2 :: _)) => if (h1 == h2) compressRec(t1) else h1::compressRec(t1)
   }
   
   def compressFold[A](l: List[A]): List[A] = l.foldRight(Nil: List[A]){
@@ -119,10 +119,17 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case tsomeothertype => err(tsomeothertype, e1)
       }
 
-      case Binary(Plus, e1, e2) =>
-        ???
-      case Binary(Minus|Times|Div, e1, e2) => 
-        ???
+      case Binary(Plus, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TNumber, TNumber) => TNumber
+        case (TString, TString) => TString
+        case (TNumber, TString) => TString
+        case (TString, TNumber) => TString
+        case (tsomeothertype, _ ) => err(tsomeothertype, e1)
+      }
+      case Binary(Minus|Times|Div, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TNumber, TNumber) => TNumber
+        case (tsomeothertype, _ ) => err(tsomeothertype, e1)
+      }
       case Binary(Eq|Ne, e1, e2) =>
         ???
       case Binary(Lt|Le|Gt|Ge, e1, e2) =>
