@@ -77,7 +77,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
 
   def strictlyOrdered(t: Tree): Boolean = {
     val (b, _) = foldLeft(t)((true, None: Option[Int])){
-      (acc, match) {
+      (acc, d) => (acc, d) match {
         case ((false, _), i) => (false, Some(i))
         case ((true, None), i) => (true, Some(i))
         case ((true, Some(x)), i) => if (x < i) (true, Some(i)) else (false, Some(i))
