@@ -50,16 +50,19 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   }
   
   def mapFirst[A](l: List[A])(f: A => Option[A]): List[A] = l match {
-    case Nil => ???
-    case h :: t => ???
+    case Nil => Nil
+    case h :: t => f(h) match {
+      case None => h :: mapFirst(t)(f)
+      case Some(foo) => foo(t)
+    }
   }
   
   /* Trees */
 
   def foldLeft[A](t: Tree)(z: A)(f: (A, Int) => A): A = {
     def loop(acc: A, t: Tree): A = t match {
-      case Empty => ???
-      case Node(l, d, r) => ???
+      case Empty => acc /* empty tree */
+      case Node(l, d, r) => loop(loop(f(d), l), r) /* apply to d, loop through left tree, then right */
     }
     loop(z, t)
   }
@@ -74,7 +77,11 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
 
   def strictlyOrdered(t: Tree): Boolean = {
     val (b, _) = foldLeft(t)((true, None: Option[Int])){
-      ???
+      (acc, match) {
+        case ((false, _), i) => (false, Some(i))
+        case ((true, None), i) => (true, Some(i))
+        case ((true, Some(x)), i) => if (x < i) (true, Some(i)) else (false, Some(i))
+      }
     }
     b
   }
@@ -94,18 +101,24 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
 
     e match {
       case Print(e1) => typeof(env, e1); TUndefined
-      case N(_) => ???
-      case B(_) => ???
-      case Undefined => ???
-      case S(_) => ???
-      case Var(x) => ???
-      case Decl(mode, x, e1, e2) => ???
+      case N(_) => TNumber
+      case B(_) => TBool
+      case Undefined => TUndefined
+      case S(_) => TString
+      case Var(x) => lookup(env, x)
+      case Decl(mode, x, e1, e2) => {
+        val env2 = extend(env, x, typeof(env, e1))
+        typeof(env2, e2)
+      }
       case Unary(Neg, e1) => typeof(env, e1) match {
         case TNumber => TNumber
         case tgot => err(tgot, e1)
       }
-      case Unary(Not, e1) =>
-        ???
+      case Unary(Not, e1) => typeof(env, e1) match {
+        case TBool => TBool
+        case tsomeothertype => err(tsomeothertype, e1)
+      }
+
       case Binary(Plus, e1, e2) =>
         ???
       case Binary(Minus|Times|Div, e1, e2) => 
