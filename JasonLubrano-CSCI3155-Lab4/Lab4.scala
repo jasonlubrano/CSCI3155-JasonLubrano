@@ -53,7 +53,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     case Nil => Nil
     case h :: t => f(h) match {
       case None => h :: mapFirst(t)(f)
-      case Some(foo) => foo(t)
+      case Some(foo) => foo :: t
     }
   }
   
@@ -62,7 +62,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   def foldLeft[A](t: Tree)(z: A)(f: (A, Int) => A): A = {
     def loop(acc: A, t: Tree): A = t match {
       case Empty => acc /* empty tree */
-      case Node(l, d, r) => loop(loop(f(d), l), r) /* apply to d, loop through left tree, then right */
+      case Node(l, d, r) => loop(loop(f(acc, d), l), r) /* apply to d, loop through left tree, then right */
     }
     loop(z, t)
   }
