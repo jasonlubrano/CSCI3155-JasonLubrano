@@ -62,7 +62,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   def foldLeft[A](t: Tree)(z: A)(f: (A, Int) => A): A = {
     def loop(acc: A, t: Tree): A = t match {
       case Empty => acc /* empty tree */
-      case Node(l, d, r) => loop(loop(f(acc, d), l), r) /* apply to d, loop through left tree, then right */
+      case Node(l, d, r) => loop(f(loop(acc, l), d), r) /* apply to d, loop through left tree, then right */
     }
     loop(z, t)
   }
@@ -110,10 +110,12 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         val env2 = extend(env, x, typeof(env, e1))
         typeof(env2, e2)
       }
+
       case Unary(Neg, e1) => typeof(env, e1) match {
         case TNumber => TNumber
         case tgot => err(tgot, e1)
       }
+
       case Unary(Not, e1) => typeof(env, e1) match {
         case TBool => TBool
         case tsomeothertype => err(tsomeothertype, e1)
@@ -122,48 +124,98 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Binary(Plus, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TNumber, TNumber) => TNumber
         case (TString, TString) => TString
-        case (TNumber, TString) => TString
-        case (TString, TNumber) => TString
-        case (tsomeothertype, _ ) => err(tsomeothertype, e1)
+        case (tsomeothertype: Typ, _) if(tsomeothertype != TNumber && tsomeothertype != TString) => err(tsomeothertype, e1)
+        case (_, tsomeothertype: Typ) => err(tsomeothertype, e2)
       }
+
       case Binary(Minus|Times|Div, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TNumber, TNumber) => TNumber
-        case (tsomeothertype, _ ) => err(tsomeothertype, e1)
+        case (tsomeothertype: Typ, _) => err(tsomeothertype, e1)
+        case (_, tsomeothertype: Typ) => err(tsomeothertype, e2)
       }
-      case Binary(Eq|Ne, e1, e2) =>
-        ???
-      case Binary(Lt|Le|Gt|Ge, e1, e2) =>
-        ???
-      case Binary(And|Or, e1, e2) =>
-        ???
-      case Binary(Seq, e1, e2) =>
-        ???
-      case If(e1, e2, e3) =>
-        ???
+
+      case Binary(Eq|Ne, e1, e2) => (typeof(env, e1)) match {
+        case tsomeothertype if (hasFunctionTyp(tsomeothertype)) => err(tsomeothertype, e1)
+        case _ => typeof(env, e2) match {
+          case tsomeothertype if (hasFunctionTyp(tsomeothertype)) => err(tsomeothertype, e2)
+          case _ => if (typeof(env, e1) == typeof(env, e2)) TBool else err(typeof(env, e2), e2)
+        }
+
+      }
+
+      case Binary(Lt|Le|Gt|Ge, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TNumber, TNumber) => TBool
+        case (TString, TString) => TBool
+        case (tsomeothertype: Typ, _) if (tsomeothertype != TNumber && tsomeothertype != TString) => err(tsomeothertype, e1)
+        case (_, tsomeothertype: Typ) if (tsomeothertype != TNumber && tsomeothertype != TString) => err(tsomeothertype, e2)
+      }
+
+      case Binary(And|Or, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TBool, TBool) => TBool
+        case (tsomeothertype: Typ, _) if (tsomeothertype != TBool) => err(tsomeothertype, e1)
+        case (_, tsomeothertype: Typ) if (tsomeothertype != TBool) => err(tsomeothertype, e2)
+      }
+
+      case Binary(Seq, e1, e2) => typeof(env, e1); typeof(env, e2)
+
+      case If(e1, e2, e3) => (typeof(env, e1), typeof(env, e2), typeof(env, e3)) match {
+        case (TBool, typ1, typ2) => if (typ1 == typ2) typ1 else typ2
+        case (tsomeothertype, _, _) => err(tsomeothertype, e1)
+      }
+
       case Function(p, params, tann, e1) => {
         // Bind to env1 an environment that extends env with an appropriate binding if
         // the function is potentially recursive.
         val env1 = (p, tann) match {
-          /***** Add cases here *****/
+          case(Some(foo), Some(typret)) => val funtyp = TFunction(params, typret); env + (foo -> funtyp)
+          case (None, _) => env
           case _ => err(TUndefined, e1)
         }
         // Bind to env2 an environment that extends env1 with bindings for params.
-        val env2 = ???
+        val env2 = params.foldLeft(env1:TEnv){
+          case(env1, (s: String, MTyp(_, t))) => extend(env1, s, t)
+        } /* ask vy about this one */
         // Infer the type of the function body
-        val t1 = ???
+        val t1 = typeof(env2, e1)
         // Check with the possibly annotated return type
-        ???
+        tann match {
+          case None => {
+            val ttyp1 = inferType(e1)
+            val ttyp2 = TFunction(params, ttyp1)
+            ttyp2
+          }
+          case Some(trettyp) => {
+            val ttyp1 = inferType(e1)
+            val ttyp2 = TFunction(params, ttyp1)
+            if (ttyp2 != TFunction(params, trettyp)) err(ttyp1, e1) else TFunction(params, trettyp)
+          }
+        }
       }
+
       case Call(e1, args) => typeof(env, e1) match {
         case TFunction(params, tret) if (params.length == args.length) =>
           (params zip args).foreach {
-            ???
+            case ((_, MTyp(_, t)), arg) => {
+              /* have to be equal types */
+              if(t != typeof(env, arg)) err(typeof(env, arg), e1)
+            }
           };
           tret
         case tgot => err(tgot, e1)
       }
-      case Obj(fields) => ???
-      case GetField(e1, f) => ???
+
+        /* map expr to type, keep same field name */
+      case Obj(fields) => TObj(fields mapValues { (e1) => typeof(env, e1)} )
+
+      case GetField(e1, f) => val type1 = typeof(env, e1); type1 match {
+        case TObj(fields) => fields.get(f) match {
+            /* e1 must be an object of that field or error */
+          case Some(v) => v
+          case None => err(type1, e1)
+        }
+          /* not object type */
+        case _ => err(type1, e1)
+      }
     }
   }
   
@@ -184,13 +236,27 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     require(isValue(v2), s"inequalityVal: v2 ${v2} is not a value")
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
     (v1, v2) match {
-      case _ => ??? // delete this line when done
+      case (N(n1), N(n2)) => (bop) match {
+        case Lt => n1 < n2
+        case Gt => n1 > n2
+        case Le => n1 <= n2
+        case Ge => n1 >= n2
+      }// delete this line when done
+      case (S(s1), S(s2)) => (bop) match {
+        case Lt => s1 < s2
+        case Gt => s1 > s2
+        case Le => s1 <= s2
+        case Ge => s1 >= s2
+      }
     }
   }
 
   /* This should be the same code as from Lab 3 */
   def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
-    def loop(e: Expr, n: Int): Expr = ???
+    def loop(e: Expr, n: Int): Expr = next(e, n) match {
+      case Some(e1) => loop(e1, n + 1)
+      case None => e
+    }
     loop(e0, 0)
   }
 
@@ -200,23 +266,30 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case N(_) | B(_) | Undefined | S(_) => e
       case Print(e1) => Print(substitute(e1, esub, x))
         /***** Cases from Lab 3 */
-      case Unary(uop, e1) => ???
-      case Binary(bop, e1, e2) => ???
-      case If(e1, e2, e3) => ???
-      case Var(y) => ???
-      case Decl(mode, y, e1, e2) => ???
-        /***** Cases needing adapting from Lab 3 */
-      case Function(p, params, tann, e1) =>
-        ???
-      case Call(e1, args) => ???
-        /***** New cases for Lab 4 */
-      case Obj(fields) => ???
-      case GetField(e1, f) => ???
-    }
+      case Unary(uop, e1) => Unary(uop, substitute(e1, esub, x))
+      case Binary(bop, e1, e2) => Binary(bop, substitute(e1, esub, x), substitute(e2, esub, x))
+      case If(e1, e2, e3) => If(substitute(e1, esub, x), substitute(e2, esub, x), substitute(e3, esub, x))
+      case Var(y) => if (x == y) esub else e
+      case Decl(mode, y, e1, e2) => {
+        val e2sub = substitute(e2, esub, x)
+        val e1sub = substitute(e1, esub, x)
+        if(x == y) e2 else e2sub
+        Decl(mode, y, e1sub, e2sub)
 
-    val fvs = freeVars(???)
-    def fresh(x: String): String = if (???) fresh(x + "$") else x
-    subst(???)
+      }
+        /***** Cases needing adapting from Lab 3 */
+      case Function(p, params, tann, e1) => if ((params exists ((parms)=> parms._1 == x )) || (p == Some(x))) e else Function(p, params, tann, substitute(e1, esub, x))
+
+      case Call(e1, args) => Call(substitute(e1, esub, x), args map {e1 => substitute(e1, esub, x)})
+        /***** New cases for Lab 4 */
+
+      case Obj(fields) => Obj(fields mapValues{(exp) => substitute(exp, esub, x)})
+
+      case GetField(e1, foo) => if (x == foo) e else GetField(substitute(e1, esub, x), foo)
+
+    val fvs = freeVars(esub)
+    def fresh(x: String): String = if (x == foo) fresh(x + "$") else x
+    subst(rename(e)(fresh))
   }
 
   /* Rename bound variables in e */
