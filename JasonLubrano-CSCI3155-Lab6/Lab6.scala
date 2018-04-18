@@ -137,28 +137,35 @@ object Lab6 extends jsy.util.JsyApplication with Lab6Like {
     * @param sc the success continuation
     * @return if there is a prefix match, then sc is called with the remainder of chars that has yet to be matched. That is, the success continuation sc captures “what to do next if a prefix of chars successfully matches re; if a failure to match is discovered, then false is returned directly.
     */
+
   def test(re: RegExpr, chars: List[Char])(sc: List[Char] => Boolean): Boolean = (re, chars) match {
     /* Basic Operators */
     case (RNoString, _) => false /* albert say this always false */
     case (REmptyString, _) => sc(chars) /* is it empty, bc then true */
     case (RSingle(_), Nil) => false /* empty list cant be true for single */
-    case (RSingle(c1), c2 :: t) => if(c1 == c2) sc(t) else false /*if c1 dont match c2 it false */
+    case (RSingle(c1), c2 :: t) => if(c1 == c2) sc(t) else false /*if c1 don't match c2 it false */
     case (RConcat(re1, re2), _) => test(re1, chars)(chars => test(re2, chars)(sc)) /* test the first, then the second */
-    case (RUnion(re1, re2), _) => test(re1, chars)(sc) || test(re2, chars)(sc) /* union is first or second wouldnt interseciton be && ?? */
-    case (RStar(re1), _) => test(REmptyString, chars)(sc) || test(re1, chars)(sc)
+    case (RUnion(re1, re2), _) => test(re1, chars)(sc) || test(re2, chars)(sc) /* union is first or second wouldn't intersect be && ?? */
+    case (RStar(re1), _) => sc(chars) || test(re1, chars)(sc)
 
     /* Extended Operators */
     case (RAnyChar, Nil) => false
     case (RAnyChar, _ :: t) => sc(t)
-    case (RPlus(re1), _) => ???
-    case (ROption(re1), _) => ???
+    case (RPlus(re1), _) => if(re1 == RNoString) false else test(re1, chars)(sc)
+    case (ROption(re1), _) => re1 match {
+      case REmptyString => true
+      case RSingle(_) => true
+      case _ => false
+    }
 
     /***** Extra Credit Cases *****/
+      /* wouldnt this be && */
     case (RIntersect(re1, re2), _) => test(re1, chars)(sc) && test(re2, chars)(sc)
-    case (RNeg(re1), _) => ???
+    case (RNeg(re1), _) => !test(re1, chars)(sc)
+
   }
 
-  def retest(re: RegExpr, s: String): Boolean = test(re, s.toList) { chars => ??? }
+  def retest(re: RegExpr, s: String): Boolean = test(re, s.toList) { chars => chars.isEmpty }
 
 
   /*******************************/
