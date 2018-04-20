@@ -146,17 +146,17 @@ object Lab6 extends jsy.util.JsyApplication with Lab6Like {
     case (RSingle(c1), c2 :: t) => if(c1 == c2) sc(t) else false /*if c1 don't match c2 it false */
     case (RConcat(re1, re2), _) => test(re1, chars)(chars => test(re2, chars)(sc)) /* test the first, then the second */
     case (RUnion(re1, re2), _) => test(re1, chars)(sc) || test(re2, chars)(sc) /* union is first or second wouldn't intersect be && ?? */
-    case (RStar(re1), _) => sc(chars) || test(re1, chars)(sc)
+    case (RStar(re1), _) => sc(chars) || test(re1, chars){
+      RemainChars => {
+        if (RemainChars.length < chars.length) test(re, RemainChars)(sc) else false
+      }
+    }
 
     /* Extended Operators */
     case (RAnyChar, Nil) => false
     case (RAnyChar, _ :: t) => sc(t)
     case (RPlus(re1), _) => if(re1 == RNoString) false else test(re1, chars)(sc)
-    case (ROption(re1), _) => re1 match {
-      case REmptyString => true
-      case RSingle(_) => true
-      case _ => false
-    }
+    case (ROption(re1), _) => sc(chars) || test(re1, chars)(sc)
 
     /***** Extra Credit Cases *****/
       /* wouldnt this be && */
