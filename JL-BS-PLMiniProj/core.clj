@@ -11,5 +11,4 @@
   (insta/parser
     "S = AB*
     A = 'a'| B 
-    B = 'b'| Epsilon
-    ep = Epsilon"))
+    B = 'b'| Epsilon"))
