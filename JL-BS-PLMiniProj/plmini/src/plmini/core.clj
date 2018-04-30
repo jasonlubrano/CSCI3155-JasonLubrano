@@ -4,7 +4,7 @@
   (:require [instaparse.core :as insta]))
 
 
-;;Run with REPL, 
+;;Run, 
 
 (defn -main []
   (println "Hello, World!")
@@ -35,4 +35,9 @@
     "S = A A
      A = 'a'*"))
 
-   
+(def parsermap
+  (insta/parser
+    "S = map
+    map = 'map'"))
+
+
